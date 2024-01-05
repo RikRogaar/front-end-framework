@@ -5,10 +5,10 @@ export const patch = init([
     eventListenersModule
 ]);
 
-export const initRender = (e: string, v: FrameworkElement) => {
+export const initRender = (e: string, v: any) => {
     const targetEl = document.querySelector(e);
 
     targetEl ?
-        patch(targetEl, v.template) :
+        patch(targetEl, v) :
         null;
 }
