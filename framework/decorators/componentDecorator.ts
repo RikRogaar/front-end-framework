@@ -1,13 +1,14 @@
-import parseHTML from '../parser';
+import ParserTest from '../parser';
 
 export default function Component(data: componentDecoratorParams) {
-    return (_ctr: Function) => {
-        const { template } = data;
-
-        const vtree = parseHTML(template);
+    return (ctr: any) => {
+        const { template, initialRender } = data;
+        const instance = new ctr();
+        new ParserTest(template, instance, initialRender ?? '');
     }
 }
 
 interface componentDecoratorParams {
     template: string;
+    initialRender?: string;
 }
