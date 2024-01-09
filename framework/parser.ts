@@ -11,8 +11,9 @@ export default class ParserTest {
 
     constructor(
         fname: string,
-        component: any,
-        initialRender: string
+        sname: string,
+        initialRender: string,
+        component: any
     ) {
         this.component = component;
         this.initialRender = initialRender;
@@ -25,10 +26,12 @@ export default class ParserTest {
         this.parse(markup);
     }
 
-    // Parse the provided markup and build the VNode stack
+    /**
+     *
+     * @description Parse the provided markup and build the VNode stack
+     */
     private parse(markup: string) {
         const stack: VNode[] = [];
-        const stackRef: any[] = [];
         let lastNode: RegExpExecArray | null = null;
         let match: RegExpExecArray | null = null;
         let lastIndex = 0;
@@ -41,10 +44,13 @@ export default class ParserTest {
         }
     }
 
-    // Handle the regular expression match to process HTML tags and build the VNode stack
+    /**
+     *
+     * @description Handle the regular expression match to process HTML tags and build the VNode stack
+     */
     private handleRegex(match: RegExpExecArray | null, markup: string, stack: VNode[], lastNode: RegExpExecArray | null, lastIndex: number) {
         while ((match = this.PATTERN.exec(markup)) !== null) {
-            const [, closingSlash, tagName, attributes, selfClosingSlash] = match;
+            const [, closingSlash, tagName] = match;
             const stackLastItem = stack.at(-1);
 
             // Handle text content between tags
@@ -73,7 +79,10 @@ export default class ParserTest {
         }
     }
 
-    // Handle text content between HTML tags, replacing property references with actual values
+    /**
+     *
+     * @description Handle text content between HTML tags, replacing property references with actual values
+     */
     private handleText(markup: string, lastIndex: number, matchIndex: number, stackLastItem: VNode) {
         let text = markup.slice(lastIndex, matchIndex);
 
