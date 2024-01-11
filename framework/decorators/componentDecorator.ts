@@ -1,10 +1,13 @@
-import ParserTest from '../parser';
+import parser from '../parser';
 
 export default function Component(data: componentDecoratorParams) {
-    return (ctr: any) => {
+    return (ctr: new () => any) => {
+        // @ts-ignore
         const { template, styles, initialRender } = data;
         const instance = new ctr();
-        new ParserTest(template, styles ?? '', initialRender ?? '', instance);
+
+        new parser(template, initialRender ?? '', instance);
+        // new ParserTest(template, styles ?? '', initialRender ?? '', instance);
     }
 }
 

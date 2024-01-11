@@ -1,103 +1,112 @@
-import { VNode, h } from 'snabbdom';
-import fs from 'vite-plugin-fs/browser';
-import { initRender } from './render';
+import { VNode, h } from "snabbdom";
+import { initRender } from "./render";
+import fs from "vite-plugin-fs/browser";
 
-export default class ParserTest {
-    private PATTERN = /<(\/)?([a-z][a-z0-9-]*)\s*([^>]*?)(\/?)>/gi;
+export default class parser {
     private PROPERTY_REFERENCE = /{{\s?(\w*)\s?}}/gi;
-    private component: any;
-    private stack: VNode[] = [];
-    private initialRender: string = '';
+
+    private initialRender: string;
+    private componentInstance: any;
 
     constructor(
         fname: string,
-        sname: string,
         initialRender: string,
-        component: any
+        componentInstance: any
     ) {
-        this.component = component;
         this.initialRender = initialRender;
+        this.componentInstance = componentInstance;
 
+        this.init(fname);
+    }
+
+    private init(fname: string) {
         this.getTemplate(fname);
     }
 
     private async getTemplate(fname: string) {
         let markup = await fs.readFile(fname);
-        this.parse(markup);
+
+        const parsed = this.parseHTML(markup);
+
+        if (this.initialRender) {
+
+            initRender(this.initialRender, parsed);
+        }
     }
 
-    /**
-     *
-     * @description Parse the provided markup and build the VNode stack
-     */
-    private parse(markup: string) {
+    public parseHTML(html: string) {
         const stack: VNode[] = [];
-        let lastNode: RegExpExecArray | null = null;
-        let match: RegExpExecArray | null = null;
-        let lastIndex = 0;
+        const root = h('div');
+        let currentElement = root;
 
-        this.handleRegex(match, markup, stack, lastNode, lastIndex);
+        const tokens = html.match(/<\/?[^>]+>|[^<]+/g) || [];
 
-        this.stack = stack;
-        if (this.initialRender.length > 0) {
-            initRender(this.initialRender, this.stack[0]);
-        }
-    }
-
-    /**
-     *
-     * @description Handle the regular expression match to process HTML tags and build the VNode stack
-     */
-    private handleRegex(match: RegExpExecArray | null, markup: string, stack: VNode[], lastNode: RegExpExecArray | null, lastIndex: number) {
-        while ((match = this.PATTERN.exec(markup)) !== null) {
-            const [, closingSlash, tagName] = match;
-            const stackLastItem = stack.at(-1);
-
-            // Handle text content between tags
-            if (stackLastItem && lastNode && closingSlash && match[2] === lastNode[2]) {
-                this.handleText(markup, lastIndex, match.index, stackLastItem);
-            }
-
-            // Process opening and closing tags
-            if (!closingSlash) {
-                const vnode: VNode = h(tagName, {});
-
-                if (stackLastItem) {
-                    stackLastItem.children = stackLastItem.children || [];
-                    stackLastItem.children.push(vnode);
-                } else {
-                    stack.push(vnode);
-                }
-
-                stack.push(vnode);
-            } else {
+        for (const token of tokens) {
+            if (token.startsWith('</')) {
                 stack.pop();
-            }
+                currentElement = stack[stack.length - 1];
+            } else if (token.startsWith('<')) {
+                const match = token.match(/<(\w+)([^>]*)>/);
 
-            lastNode = match;
-            lastIndex = this.PATTERN.lastIndex;
+                if (match) {
+                    const tag = match[1];
+                    let attributes = {};
+
+                    match[2].replace(/(\w+)="([^"]*)"/g, (_substring: string, ...args: any[]) => {
+                        const strippedFn = args[1].replace(/^["]+|["]+$/g, '');
+                        const matches = /(\w+)\((\S+)?\)/g.exec(strippedFn);
+
+                        if (matches) {
+                            const fnArg = matches[2] ? matches[2].replace(/^[']+|[']+$/g, '') : '';
+                            const fn = this.componentInstance[matches[1]];
+                            console.log(fn);
+                            attributes = ({
+                                on: {
+                                    click: () => fn(fnArg)
+                                }
+                            });
+                        }
+
+                        return "";
+                    });
+
+                    const newNode = h(tag, attributes);
+                    if (currentElement.children) {
+                        currentElement.children[currentElement.children.length] = newNode
+                    } else {
+                        currentElement.children = [newNode]
+                    }
+                    stack.push(newNode);
+                    currentElement = newNode;
+                }
+            } else {
+                const trimmedToken = token.trim();
+
+                if (trimmedToken.length > 0) {
+                    const parsedToken = this.handleReferences(token);
+                    const textNode = h('span', parsedToken);
+                    textNode.text = parsedToken;
+
+                    if (currentElement.children) {
+                        currentElement.children[currentElement.children.length] = textNode
+                    } else {
+                        currentElement.children = [textNode]
+                    }
+                }
+            }
         }
+
+        return root.children ? root.children[0] : null;
     }
 
-    /**
-     *
-     * @description Handle text content between HTML tags, replacing property references with actual values
-     */
-    private handleText(markup: string, lastIndex: number, matchIndex: number, stackLastItem: VNode) {
-        let text = markup.slice(lastIndex, matchIndex);
+    private handleReferences(token: string) {
+        const propertyReferences = token.matchAll(this.PROPERTY_REFERENCE);
 
-        // Find all property references in the text
-        const propertyReferences = text.matchAll(this.PROPERTY_REFERENCE);
-
-        // Replace property references with actual property values from the component
         for (const propertyReference of propertyReferences) {
             const property = propertyReference[1];
-            text = text.replace(propertyReference[0], this.component[property]);
+            token = token.replace(propertyReference[0], this.componentInstance[property]);
         }
 
-        // Set the processed text as the text content of the current VNode
-        if (stackLastItem) {
-            stackLastItem.text = text.trim();
-        }
+        return token;
     }
 }
