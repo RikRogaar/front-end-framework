@@ -1,14 +1,15 @@
-import { eventListenersModule, init } from "snabbdom";
-import FrameworkElement from "./types/FrameworkElement";
+import { classModule, eventListenersModule, init, styleModule } from "snabbdom";
 
 export const patch = init([
-    eventListenersModule
+    eventListenersModule,
+    classModule,
+    styleModule
 ]);
 
-export const initRender = (e: string, v: FrameworkElement) => {
+export const initRender = (e: string, v: any) => {
     const targetEl = document.querySelector(e);
 
     targetEl ?
-        patch(targetEl, v.template) :
+        patch(targetEl, v) :
         null;
 }
